@@ -254,6 +254,18 @@ const INITIAL_LOGS = (): ActivityLog[] => [
   { id: 'l4', timestamp: new Date(Date.now() - 3600000 * 2).toISOString(), userName: 'Rodrigo Boss', userEmail: 'admin@gestaosaas.com.br', userRole: 'admin', actionType: 'add_account', details: 'Cadastrou nova conta a pagar: Aluguel Coworking R$ 2.300,00' }
 ];
 
+const normalizeLog = (item: any): ActivityLog => {
+  return {
+    id: item.id || 'log_' + Date.now() + Math.random().toString(36).substring(2, 5),
+    timestamp: item.timestamp || new Date().toISOString(),
+    userName: item.userName || item.username || item.user_name || 'Usuário',
+    userEmail: item.userEmail || item.useremail || item.user_email || '',
+    userRole: (item.userRole || item.userrole || item.user_role || 'funcionario') as ActivityLog['userRole'],
+    actionType: (item.actionType || item.actiontype || item.action_type || 'simulate_worker') as ActivityLog['actionType'],
+    details: item.details || ''
+  };
+};
+
 export function AppProvider({ children }: { children: ReactNode }) {
   // Toast notifications state
   const [toasts, setToasts] = useState<AppContextType['toasts']>([]);
@@ -392,8 +404,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
           if (logsError) {
             console.warn("Erro ao buscar logs no Supabase:", logsError);
           } else if (logsData && logsData.length > 0) {
-            setActivityLogs(logsData as ActivityLog[]);
-            saveToLocal('gestao_logs', logsData);
+            const mappedLogs = logsData.map(normalizeLog);
+            setActivityLogs(mappedLogs);
+            saveToLocal('gestao_logs', mappedLogs);
           }
 
           // Real-time channel subscriptions for live multi-user features
@@ -419,7 +432,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             .on('postgres_changes', { event: '*', schema: 'public', table: 'logs' }, async () => {
               if (!active) return;
               const { data } = await supabase.from('logs').select('*').order('timestamp', { ascending: false }).limit(20);
-              if (data && active) setActivityLogs(data as ActivityLog[]);
+              if (data && active) setActivityLogs(data.map(normalizeLog));
             });
 
           liveChannel.subscribe();
@@ -466,16 +479,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (localUser) {
         setUser(JSON.parse(localUser));
       } else {
-        // Auto sign in. Let's make user start logged-in as Admin to make onboarding fluid
-        const startSession: UserSession = {
-          uid: '1',
-          name: 'Rodrigo Boss',
-          email: 'admin@gestaosaas.com.br',
-          role: 'admin',
-          isSimulated: true
-        };
-        setUser(startSession);
-        localStorage.setItem('gestao_cached_user', JSON.stringify(startSession));
+        setUser(null);
       }
 
       setLoading(false);
@@ -500,13 +504,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   // Helper to add Activity Log
-  const logActivity = async (actionType: ActivityLog['actionType'], details: string, activeUser: UserSession) => {
+  const logActivity = async (actionType: ActivityLog['actionType'], details: string, activeUser?: UserSession | null) => {
+    const fallbackUser: UserSession = {
+      uid: 'sistema',
+      name: 'Sistema',
+      email: 'sistema@gestaosaas.com.br',
+      role: 'admin',
+      isSimulated: false
+    };
+    const finalUser = activeUser || user || fallbackUser;
+
     const newLog: ActivityLog = {
       id: 'log_' + Date.now() + Math.random().toString(36).substring(2, 5),
       timestamp: new Date().toISOString(),
-      userName: activeUser.name,
-      userEmail: activeUser.email,
-      userRole: activeUser.role,
+      userName: finalUser.name,
+      userEmail: finalUser.email,
+      userRole: finalUser.role,
       actionType,
       details
     };
@@ -517,7 +530,42 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     if (isSupabaseConfigured && supabase) {
       try {
-        await supabase.from('logs').insert([newLog]);
+        // Try camelCase insertion first (as defined in our schema)
+        const { error } = await supabase.from('logs').insert([newLog]);
+        if (error) {
+          console.warn("[Supabase Logs] Falha com chaves camelCase, tentando lowercase...", error.message);
+          
+          // Fallback 1: lowercase keys (username, useremail, userrole, actiontype)
+          const lowercaseLog = {
+            id: newLog.id,
+            timestamp: newLog.timestamp,
+            username: newLog.userName,
+            useremail: newLog.userEmail,
+            userrole: newLog.userRole,
+            actiontype: newLog.actionType,
+            details: newLog.details
+          };
+          
+          const { error: err2 } = await supabase.from('logs').insert([lowercaseLog]);
+          if (err2) {
+            console.warn("[Supabase Logs] Falha com chaves lowercase, tentando snake_case...", err2.message);
+            
+            // Fallback 2: snake_case keys (user_name, user_email, user_role, action_type)
+            const snakeCaseLog = {
+              id: newLog.id,
+              timestamp: newLog.timestamp,
+              user_name: newLog.userName,
+              user_email: newLog.userEmail,
+              user_role: newLog.userRole,
+              action_type: newLog.actionType,
+              details: newLog.details
+            };
+            const { error: err3 } = await supabase.from('logs').insert([snakeCaseLog]);
+            if (err3) {
+              console.error("[Supabase Logs] Falha definitiva ao salvar log:", err3.message);
+            }
+          }
+        }
       } catch (err) {
         console.warn("Não foi possível persistir log no Supabase:", err);
       }

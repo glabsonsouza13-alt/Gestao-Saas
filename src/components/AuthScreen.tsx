@@ -5,7 +5,7 @@
 
 import { useState } from 'react';
 import { useAppStore } from '../context/AppContext';
-import { Shield, Sparkles, Building2, TrendingUp, Users, ArrowRight, UserCheck } from 'lucide-react';
+import { Shield, Sparkles, Building2, TrendingUp, Users, ArrowRight, UserCheck, Lock, Mail, LogIn } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function AuthScreen() {
@@ -17,11 +17,13 @@ export default function AuthScreen() {
     updateCompanySettings 
   } = useAppStore();
 
-  const [onboardingStep, setOnboardingStep] = useState<number>(0);
+  const [onboardingStep, setOnboardingStep] = useState<number>(3);
   const [role, setRole] = useState<'admin' | 'funcionario'>('admin');
   const [userName, setUserName] = useState<string>('');
   const [companyName, setCompanyName] = useState<string>('');
   const [businessType, setBusinessType] = useState<string>('Tecnologia');
+  const [loginEmail, setLoginEmail] = useState<string>('admin@gestaosaas.com.br');
+  const [loginPassword, setLoginPassword] = useState<string>('123456');
 
   const handleNextStep = () => {
     if (onboardingStep === 0) {
@@ -316,23 +318,86 @@ export default function AuthScreen() {
               >
                 <div>
                   <div className="flex justify-center mb-6">
-                    <span className="p-3 bg-indigo-955/40 border border-indigo-900/30 text-indigo-400 rounded-2xl">
+                    <span className="p-3 bg-indigo-950/40 border border-indigo-900/30 text-indigo-400 rounded-2xl">
                       <UserCheck className="h-8 w-8" />
                     </span>
                   </div>
                   <h1 className="text-3xl font-sans font-semibold text-white text-center tracking-tight mb-2">
-                    Tudo Pronto!
+                    Entrar no Sistema
                   </h1>
-                  <p className="text-sm font-sans text-zinc-400 text-center mb-8">
-                    Escolha como deseja se conectar e iniciar a central administrativa.
+                  <p className="text-sm font-sans text-zinc-400 text-center mb-6">
+                    Digite suas credenciais para acessar a central administrativa da empresa.
                   </p>
 
-                  <div className="space-y-4">
+                  <form 
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      const prefix = loginEmail.includes('@') ? loginEmail.split('@')[0] : 'Administrador';
+                      const cleanName = prefix.charAt(0).toUpperCase() + prefix.slice(1);
+                      const isFunc = loginEmail.toLowerCase().includes('func') || loginEmail.toLowerCase().includes('worker') || loginEmail.toLowerCase().includes('colab');
+                      const resolvedRole = isFunc ? 'funcionario' : 'admin';
+                      
+                      loginDemo(resolvedRole, cleanName, loginEmail);
+                      completeOnboarding();
+                    }}
+                    className="space-y-4"
+                  >
+                    <div>
+                      <label className="block text-[11px] font-sans font-bold text-zinc-400 uppercase tracking-widest mb-1.5" htmlFor="login-email">
+                        E-mail de acesso
+                      </label>
+                      <div className="relative">
+                        <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+                        <input
+                          type="email"
+                          required
+                          value={loginEmail}
+                          onChange={(e) => setLoginEmail(e.target.value)}
+                          placeholder="rodrigo@gestaosaas.com.br"
+                          className="w-full pl-10 pr-4 py-2.5 bg-zinc-950 border border-zinc-800 focus:border-indigo-500 focus:bg-zinc-950 focus:outline-none transition-all rounded-xl text-sm font-sans text-white placeholder-zinc-650"
+                          id="login-email"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-sans font-bold text-zinc-400 uppercase tracking-widest mb-1.5" htmlFor="login-password">
+                        Senha
+                      </label>
+                      <div className="relative">
+                        <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+                        <input
+                          type="password"
+                          required
+                          value={loginPassword}
+                          onChange={(e) => setLoginPassword(e.target.value)}
+                          placeholder="Sua senha secreta"
+                          className="w-full pl-10 pr-4 py-2.5 bg-zinc-950 border border-zinc-800 focus:border-indigo-500 focus:bg-zinc-950 focus:outline-none transition-all rounded-xl text-sm font-sans text-white placeholder-zinc-650"
+                          id="login-password"
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-indigo-600 hover:bg-indigo-505 text-white font-semibold text-sm transition-all rounded-xl shadow-md cursor-pointer text-center hover:bg-indigo-500"
+                    >
+                      <LogIn className="h-4.5 w-4.5" />
+                      Entrar na Central
+                    </button>
+
+                    <div className="relative flex items-center justify-center my-4">
+                      <div className="absolute inset-0 flex items-center">
+                        <div className="w-full border-t border-zinc-850"></div>
+                      </div>
+                      <span className="relative bg-zinc-900 px-3 text-[10px] text-zinc-550 font-sans tracking-uppercase font-bold">OU ENTRAR COM CONTAS CONECTADAS</span>
+                    </div>
+
                     {/* Google standard login button simulation/real */}
                     <button
                       onClick={loginWithGoogleReal}
                       type="button"
-                      className="w-full flex items-center justify-center gap-3 py-3 px-4 bg-zinc-950 border border-zinc-800 hover:bg-zinc-900 text-zinc-200 text-sm font-semibold transition-all rounded-xl cursor-pointer"
+                      className="w-full flex items-center justify-center gap-3 py-2.5 px-4 bg-zinc-950 border border-zinc-800 hover:bg-zinc-900 text-zinc-200 text-sm font-semibold transition-all rounded-xl cursor-pointer hover:border-zinc-700"
                     >
                       <svg className="h-5 w-5" viewBox="0 0 24 24" width="24" height="24" xmlns="http://www.w3.org/2000/svg">
                         <g transform="matrix(1, 0, 0, 1, 0, 0)">
@@ -345,35 +410,20 @@ export default function AuthScreen() {
                       Entrar com o Google
                     </button>
 
-                    <div className="relative flex items-center justify-center my-6">
-                      <div className="absolute inset-0 flex items-center">
-                        <div className="w-full border-t border-zinc-850"></div>
-                      </div>
-                      <span className="relative bg-zinc-900 px-3 text-xs text-zinc-500 font-sans tracking-uppercase font-medium">OU ACESSO OFFLINE INTEGRAL</span>
-                    </div>
-
                     <button
-                      onClick={handleNextStep}
+                      onClick={() => {
+                        setOnboardingStep(0);
+                      }}
                       type="button"
-                      className="w-full py-3.5 px-4 bg-indigo-600 hover:bg-indigo-505 text-white font-semibold text-sm transition-all rounded-xl shadow-md cursor-pointer text-center block"
+                      className="w-full py-2.5 px-4 text-xs bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 text-zinc-400 hover:text-zinc-300 font-medium transition-all rounded-xl cursor-pointer text-center block"
                     >
-                      Acessar Modo Local Rápido
+                      Criar Outra Empresa do Zero (Tutorial)
                     </button>
-                    
-                    <p className="text-[11px] font-sans text-center text-zinc-500 mt-2 px-6">
-                      Utilizando o armazenamento off-line do navegador. Todos os dados permanecem salvos localmente mesmo se fechar a tela.
-                    </p>
-                  </div>
+                  </form>
                 </div>
 
-                <div className="mt-8 flex items-center justify-between">
-                  <button
-                    onClick={() => setOnboardingStep(2)}
-                    className="text-xs text-zinc-500 hover:text-zinc-450 transition-colors cursor-pointer"
-                  >
-                    Voltar
-                  </button>
-                  <span className="text-xs text-zinc-550 font-semibold">Passo 4 de 4</span>
+                <div className="mt-8 flex items-center justify-center">
+                  <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Gestão SaaS • Controle Absoluto</span>
                 </div>
               </motion.div>
             )}
