@@ -289,6 +289,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // INITIAL DATA & PERSISTENCE LOAD
   // -------------------------------------------------------------
   useEffect(() => {
+    let active = true;
+    let liveChannel: any = null;
+    let authSubscription: any = null;
+
     const loadData = async () => {
       setLoading(true);
       
@@ -304,7 +308,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         
         try {
           // Supabase Auth listener
-          supabase.auth.onAuthStateChange(async (event, session) => {
+          const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            if (!active) return;
             if (session?.user) {
               const uSession: UserSession = {
                 uid: session.user.id,
@@ -323,6 +328,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
               }
             }
           });
+          authSubscription = subscription;
 
           // Fetch Company Settings
           const { data: settingsData, error: settingsError } = await supabase
@@ -330,6 +336,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
             .select('*')
             .eq('id', 'current')
             .maybeSingle();
+
+          if (!active) return;
 
           if (settingsError) {
             console.warn("Erro ao buscar configurações no Supabase:", settingsError);
@@ -348,6 +356,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
             .order('date', { ascending: false })
             .limit(100);
 
+          if (!active) return;
+
           if (transError) {
             console.warn("Erro ao buscar transações no Supabase:", transError);
           } else if (transData && transData.length > 0) {
@@ -360,6 +370,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
             .from('accounts')
             .select('*')
             .order('dueDate', { ascending: true });
+
+          if (!active) return;
 
           if (acError) {
             console.warn("Erro ao buscar contas no Supabase:", acError);
@@ -375,6 +387,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
             .order('timestamp', { ascending: false })
             .limit(20);
 
+          if (!active) return;
+
           if (logsError) {
             console.warn("Erro ao buscar logs no Supabase:", logsError);
           } else if (logsData && logsData.length > 0) {
@@ -383,29 +397,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
           }
 
           // Real-time channel subscriptions for live multi-user features
-          const liveChannel = supabase
-            .channel('realtime_changes')
+          // Using a random suffix ensures no collisions with active/cached channels
+          const channelName = `realtime_changes_${Math.random().toString(36).substring(2, 9)}`;
+          liveChannel = supabase
+            .channel(channelName)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, async () => {
+              if (!active) return;
               const { data } = await supabase.from('transactions').select('*').order('date', { ascending: false }).limit(100);
-              if (data) setTransactions(data as Transaction[]);
+              if (data && active) setTransactions(data as Transaction[]);
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'accounts' }, async () => {
+              if (!active) return;
               const { data } = await supabase.from('accounts').select('*').order('dueDate', { ascending: true });
-              if (data) setAccounts(data as Account[]);
+              if (data && active) setAccounts(data as Account[]);
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, async () => {
+              if (!active) return;
               const { data } = await supabase.from('settings').select('*').eq('id', 'current').maybeSingle();
-              if (data) setCompanySettings(data as CompanySettings);
+              if (data && active) setCompanySettings(data as CompanySettings);
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'logs' }, async () => {
+              if (!active) return;
               const { data } = await supabase.from('logs').select('*').order('timestamp', { ascending: false }).limit(20);
-              if (data) setActivityLogs(data as ActivityLog[]);
-            })
-            .subscribe();
+              if (data && active) setActivityLogs(data as ActivityLog[]);
+            });
 
-          return () => {
-            supabase.removeChannel(liveChannel);
-          };
+          liveChannel.subscribe();
 
         } catch (sbInitError) {
           console.error("Erro na inicialização em tempo real do Supabase:", sbInitError);
@@ -465,6 +482,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
 
     loadData();
+
+    return () => {
+      active = false;
+      if (authSubscription) {
+        authSubscription.unsubscribe();
+      }
+      if (liveChannel && supabase) {
+        supabase.removeChannel(liveChannel);
+      }
+    };
   }, []);
 
   // Sync state modifications to disk
