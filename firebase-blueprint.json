@@ -1,0 +1,198 @@
+{
+  "entities": {
+    "settings": {
+      "title": "CompanySettings",
+      "description": "Configurações da empresa de gestão empresarial",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Nome da empresa"
+        },
+        "businessType": {
+          "type": "string",
+          "description": "Ramo ou tipo de negócio"
+        },
+        "monthlyGoal": {
+          "type": "number",
+          "description": "Meta financeira mensal"
+        },
+        "logoUrl": {
+          "type": "string",
+          "description": "URL do logotipo"
+        },
+        "categories": {
+          "type": "array",
+          "description": "Categorias de receitas e despesas customizadas"
+        }
+      },
+      "required": ["name", "businessType", "monthlyGoal", "categories"]
+    },
+    "transaction": {
+      "title": "Transaction",
+      "description": "Registro financeiro de entrada ou saída",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string",
+          "format": "date"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["entrada", "saida"]
+        },
+        "category": {
+          "type": "string"
+        },
+        "clientProject": {
+          "type": "string"
+        },
+        "value": {
+          "type": "number"
+        },
+        "paymentMethod": {
+          "type": "string"
+        },
+        "notes": {
+          "type": "string"
+        },
+        "authorId": {
+          "type": "string"
+        },
+        "authorName": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "date", "type", "category", "clientProject", "value", "paymentMethod", "authorId", "authorName", "createdAt"]
+    },
+    "account": {
+      "title": "Account",
+      "description": "Conta a pagar ou receber com vencimento cadastrado",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "value": {
+          "type": "number"
+        },
+        "dueDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pago", "pendente"]
+        },
+        "recurrence": {
+          "type": "string",
+          "enum": ["avulso", "mensal", "trimestral", "anual"]
+        },
+        "authorId": {
+          "type": "string"
+        },
+        "authorName": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "category": {
+          "type": "string"
+        }
+      },
+      "required": ["id", "name", "value", "dueDate", "status", "recurrence", "authorId", "authorName", "createdAt"]
+    },
+    "teamMember": {
+      "title": "TeamMember",
+      "description": "Colaborador da empresa",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string",
+          "format": "email"
+        },
+        "role": {
+          "type": "string",
+          "enum": ["admin", "funcionario"]
+        },
+        "avatarUrl": {
+          "type": "string"
+        },
+        "active": {
+          "type": "boolean"
+        }
+      },
+      "required": ["id", "name", "email", "role", "active"]
+    },
+    "activityLog": {
+      "title": "ActivityLog",
+      "description": "Log de auditoria das ações dos usuários em tempo real",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "userName": {
+          "type": "string"
+        },
+        "userEmail": {
+          "type": "string"
+        },
+        "userRole": {
+          "type": "string"
+        },
+        "actionType": {
+          "type": "string"
+        },
+        "details": {
+          "type": "string"
+        }
+      },
+      "required": ["id", "timestamp", "userName", "userEmail", "userRole", "actionType", "details"]
+    }
+  },
+  "firestore": {
+    "/companies/{companyId}/settings/current": {
+      "schema": "settings",
+      "description": "Configurações gerais da empresa"
+    },
+    "/companies/{companyId}/transactions/{transactionId}": {
+      "schema": "transaction",
+      "description": "Lançamentos financeiros de entrada e saída"
+    },
+    "/companies/{companyId}/accounts/{accountId}": {
+      "schema": "account",
+      "description": "Contas da empresa, incluindo despesas agendadas e vencimentos"
+    },
+    "/companies/{companyId}/members/{memberId}": {
+      "schema": "teamMember",
+      "description": "Equipe de funcionários cadastrados na empresa"
+    },
+    "/companies/{companyId}/logs/{logId}": {
+      "schema": "activityLog",
+      "description": "Registro de auditoria e atualizações em tempo real"
+    }
+  }
+}

@@ -1,0 +1,145 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 1. Global Safety Net: default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isCompanyMember(companyId) {
+      return isSignedIn() && exists(/databases/$(database)/documents/companies/$(companyId)/members/$(request.auth.uid));
+    }
+
+    function isCompanyAdmin(companyId) {
+      return isSignedIn() && 
+        get(/databases/$(database)/documents/companies/$(companyId)/members/$(request.auth.uid)).data.role == "admin";
+    }
+
+    // Entity Validations
+    function isValidSettings(data) {
+      return data.keys().hasAll(['name', 'businessType', 'monthlyGoal', 'categories'])
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 100
+        && data.businessType is string && data.businessType.size() <= 100
+        && data.monthlyGoal is number && data.monthlyGoal >= 0
+        && data.categories is list;
+    }
+
+    function isValidTransaction(data) {
+      return data.keys().hasAll(['id', 'date', 'type', 'category', 'clientProject', 'value', 'paymentMethod', 'authorId', 'authorName', 'createdAt'])
+        && isValidId(data.id)
+        && data.date is string && data.date.size() == 10
+        && (data.type == 'entrada' || data.type == 'saida')
+        && data.category is string && data.category.size() <= 100
+        && data.clientProject is string && data.clientProject.size() <= 150
+        && data.value is number && data.value >= 0
+        && data.paymentMethod is string && data.paymentMethod.size() <= 50
+        && data.authorId is string && data.authorId == request.auth.uid
+        && data.authorName is string && data.authorName.size() <= 100;
+    }
+
+    function isValidAccount(data) {
+      return data.keys().hasAll(['id', 'name', 'value', 'dueDate', 'status', 'recurrence', 'authorId', 'authorName', 'createdAt'])
+        && isValidId(data.id)
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 150
+        && data.value is number && data.value >= 0
+        && data.dueDate is string && data.dueDate.size() == 10
+        && (data.status == 'pago' || data.status == 'pendente')
+        && (data.recurrence == 'avulso' || data.recurrence == 'mensal' || data.recurrence == 'trimestral' || data.recurrence == 'anual')
+        && data.authorId is string && data.authorId == request.auth.uid
+        && data.authorName is string && data.authorName.size() <= 100;
+    }
+
+    function isValidMember(data) {
+      return data.keys().hasAll(['id', 'name', 'email', 'role', 'active'])
+        && isValidId(data.id)
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 100
+        && data.email is string && data.email.size() <= 100
+        && (data.role == 'admin' || data.role == 'funcionario')
+        && data.active is bool;
+    }
+
+    function isValidLog(data) {
+      return data.keys().hasAll(['id', 'timestamp', 'userName', 'userEmail', 'userRole', 'actionType', 'details'])
+        && isValidId(data.id)
+        && data.userName is string && data.userName.size() <= 100
+        && data.userEmail is string && data.userEmail.size() <= 100
+        && (data.userRole == 'admin' || data.userRole == 'funcionario')
+        && data.actionType is string && data.actionType.size() <= 50
+        && data.details is string && data.details.size() <= 500;
+    }
+
+    // Rules for company collections
+    match /companies/{companyId} {
+      
+      // Verification of company structure
+      allow get: if isSignedIn();
+
+      // settings
+      match /settings/current {
+        allow read: if isCompanyMember(companyId);
+        allow create, write: if isCompanyAdmin(companyId) && isValidSettings(request.resource.data);
+        allow update: if isCompanyAdmin(companyId) && isValidSettings(request.resource.data)
+          && request.resource.data.name == resource.data.name; // Keep name stable
+      }
+
+      // transactions
+      match /transactions/{transactionId} {
+        allow read, list: if isCompanyMember(companyId);
+        allow create: if isCompanyMember(companyId) && isValidTransaction(request.resource.data)
+          && request.resource.data.createdAt == request.time;
+        allow update: if isCompanyMember(companyId) && isValidTransaction(request.resource.data)
+          && request.resource.data.authorId == resource.data.authorId // Immutable author
+          && (isCompanyAdmin(companyId) || request.resource.data.value == resource.data.value);
+        allow delete: if isCompanyAdmin(companyId);
+      }
+
+      // accounts (bills)
+      match /accounts/{accountId} {
+        allow read, list: if isCompanyMember(companyId);
+        allow create: if isCompanyMember(companyId) && isValidAccount(request.resource.data)
+          && request.resource.data.createdAt == request.time;
+        allow update: if isCompanyMember(companyId) && isValidAccount(request.resource.data)
+          && (
+            // Anyone can pay/unpay a bill (Action: Pay)
+            (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])) ||
+            // Admins can edit anything
+            isCompanyAdmin(companyId)
+          );
+        allow delete: if isCompanyAdmin(companyId);
+      }
+
+      // members roster
+      match /members/{memberId} {
+        allow read, list: if isSignedIn(); // Let any sign-in check membership
+        // A user can create their own member document, or an admin can manage it
+        allow create: if isSignedIn() && (request.auth.uid == memberId || isCompanyAdmin(companyId)) 
+          && isValidMember(request.resource.data);
+        allow update: if isSignedIn() && (isCompanyAdmin(companyId) || (request.auth.uid == memberId && request.resource.data.role == resource.data.role))
+          && isValidMember(request.resource.data);
+        allow delete: if isCompanyAdmin(companyId);
+      }
+
+      // activity logs
+      match /logs/{logId} {
+        allow read, list: if isCompanyMember(companyId);
+        allow create: if isCompanyMember(companyId) && isValidLog(request.resource.data)
+          && request.resource.data.timestamp == request.time;
+        allow update, delete: if false; // Logs are write-once (audit trails)
+      }
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Gestão SaaS",
+  "description": "Central de controle financeiro e administrativo moderna para pequenas e médias empresas.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
