@@ -5,7 +5,7 @@
 
 import { useState } from 'react';
 import { useAppStore } from '../context/AppContext';
-import { Shield, Sparkles, Building2, TrendingUp, Users, ArrowRight, UserCheck, Lock, Mail, LogIn } from 'lucide-react';
+import { Shield, Sparkles, Building2, TrendingUp, Users, ArrowRight, UserCheck, Lock, Mail, LogIn, User, UserPlus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function AuthScreen() {
@@ -24,6 +24,7 @@ export default function AuthScreen() {
   const [businessType, setBusinessType] = useState<string>('Tecnologia');
   const [loginEmail, setLoginEmail] = useState<string>('admin@gestaosaas.com.br');
   const [loginPassword, setLoginPassword] = useState<string>('123456');
+  const [isRegistering, setIsRegistering] = useState<boolean>(false);
 
   const handleNextStep = () => {
     if (onboardingStep === 0) {
@@ -319,29 +320,61 @@ export default function AuthScreen() {
                 <div>
                   <div className="flex justify-center mb-6">
                     <span className="p-3 bg-indigo-950/40 border border-indigo-900/30 text-indigo-400 rounded-2xl">
-                      <UserCheck className="h-8 w-8" />
+                      {isRegistering ? <UserPlus className="h-8 w-8" /> : <UserCheck className="h-8 w-8" />}
                     </span>
                   </div>
                   <h1 className="text-3xl font-sans font-semibold text-white text-center tracking-tight mb-2">
-                    Entrar no Sistema
+                    {isRegistering ? "Criar sua Conta" : "Entrar no Sistema"}
                   </h1>
                   <p className="text-sm font-sans text-zinc-400 text-center mb-6">
-                    Digite suas credenciais para acessar a central administrativa da empresa.
+                    {isRegistering 
+                      ? "Cadastre-se na central moderna para gerenciar sua empresa." 
+                      : "Digite suas credenciais para acessar a central administrativa da empresa."}
                   </p>
 
                   <form 
                     onSubmit={(e) => {
                       e.preventDefault();
-                      const prefix = loginEmail.includes('@') ? loginEmail.split('@')[0] : 'Administrador';
-                      const cleanName = prefix.charAt(0).toUpperCase() + prefix.slice(1);
-                      const isFunc = loginEmail.toLowerCase().includes('func') || loginEmail.toLowerCase().includes('worker') || loginEmail.toLowerCase().includes('colab');
-                      const resolvedRole = isFunc ? 'funcionario' : 'admin';
-                      
-                      loginDemo(resolvedRole, cleanName, loginEmail);
-                      completeOnboarding();
+                      if (isRegistering) {
+                        const finalName = userName.trim() || 'Usuário';
+                        const finalCompany = companyName.trim() || 'Minha Empresa';
+                        updateCompanySettings({
+                          name: finalCompany,
+                          businessType: 'Tecnologia'
+                        });
+                        loginDemo(role, finalName, loginEmail);
+                        completeOnboarding();
+                      } else {
+                        const prefix = loginEmail.includes('@') ? loginEmail.split('@')[0] : 'Administrador';
+                        const cleanName = prefix.charAt(0).toUpperCase() + prefix.slice(1);
+                        const isFunc = loginEmail.toLowerCase().includes('func') || loginEmail.toLowerCase().includes('worker') || loginEmail.toLowerCase().includes('colab');
+                        const resolvedRole = isFunc ? 'funcionario' : 'admin';
+                        loginDemo(resolvedRole, cleanName, loginEmail);
+                        completeOnboarding();
+                      }
                     }}
                     className="space-y-4"
                   >
+                    {isRegistering && (
+                      <div>
+                        <label className="block text-[11px] font-sans font-bold text-zinc-400 uppercase tracking-widest mb-1.5" htmlFor="login-username">
+                          Seu Nome Completo
+                        </label>
+                        <div className="relative">
+                          <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+                          <input
+                            type="text"
+                            required
+                            value={userName}
+                            onChange={(e) => setUserName(e.target.value)}
+                            placeholder="Ex: Rodrigo Albuquerque"
+                            className="w-full pl-10 pr-4 py-2.5 bg-zinc-950 border border-zinc-800 focus:border-indigo-500 focus:bg-zinc-950 focus:outline-none transition-all rounded-xl text-sm font-sans text-white placeholder-zinc-650"
+                            id="login-username"
+                          />
+                        </div>
+                      </div>
+                    )}
+
                     <div>
                       <label className="block text-[11px] font-sans font-bold text-zinc-400 uppercase tracking-widest mb-1.5" htmlFor="login-email">
                         E-mail de acesso
@@ -372,43 +405,94 @@ export default function AuthScreen() {
                           value={loginPassword}
                           onChange={(e) => setLoginPassword(e.target.value)}
                           placeholder="Sua senha secreta"
-                          className="w-full pl-10 pr-4 py-2.5 bg-zinc-950 border border-zinc-800 focus:border-indigo-500 focus:bg-zinc-950 focus:outline-none transition-all rounded-xl text-sm font-sans text-white placeholder-zinc-650"
+                          className="w-full pl-10 pr-4 py-2.5 bg-zinc-950 border border-zinc-800 focus:border-indigo-505 focus:bg-zinc-950 focus:outline-none transition-all rounded-xl text-sm font-sans text-white placeholder-zinc-650"
                           id="login-password"
                         />
                       </div>
                     </div>
 
+                    {isRegistering && (
+                      <>
+                        <div>
+                          <label className="block text-[11px] font-sans font-bold text-zinc-400 uppercase tracking-widest mb-1.5" htmlFor="login-companyname">
+                            Nome da Empresa
+                          </label>
+                          <div className="relative">
+                            <Building2 className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+                            <input
+                              type="text"
+                              required
+                              value={companyName}
+                              onChange={(e) => setCompanyName(e.target.value)}
+                              placeholder="Ex: Alfa Soluções Digitais"
+                              className="w-full pl-10 pr-4 py-2.5 bg-zinc-950 border border-zinc-800 focus:border-indigo-500 focus:bg-zinc-950 focus:outline-none transition-all rounded-xl text-sm font-sans text-white placeholder-zinc-650"
+                              id="login-companyname"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-sans font-bold text-zinc-400 uppercase tracking-widest mb-1.5">
+                            Cargo / Função na Plataforma
+                          </label>
+                          <div className="grid grid-cols-2 gap-3 mt-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setRole('admin')}
+                              className={`p-2.5 border rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all text-xs font-semibold ${
+                                role === 'admin'
+                                  ? 'border-indigo-500 bg-indigo-950/30 text-indigo-400 font-semibold'
+                                  : 'border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-zinc-300'
+                              }`}
+                            >
+                              <Shield className="h-4 w-4" />
+                              Patrão / Admin
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setRole('funcionario')}
+                              className={`p-2.5 border rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all text-xs font-semibold ${
+                                role === 'funcionario'
+                                  ? 'border-indigo-500 bg-indigo-950/30 text-indigo-400 font-semibold'
+                                  : 'border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-zinc-300'
+                              }`}
+                            >
+                              <Users className="h-4 w-4" />
+                              Funcionário
+                            </button>
+                          </div>
+                        </div>
+                      </>
+                    )}
+
                     <button
                       type="submit"
                       className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-indigo-600 hover:bg-indigo-505 text-white font-semibold text-sm transition-all rounded-xl shadow-md cursor-pointer text-center hover:bg-indigo-500"
                     >
-                      <LogIn className="h-4.5 w-4.5" />
-                      Entrar na Central
+                      {isRegistering ? <UserPlus className="h-4.5 w-4.5" /> : <LogIn className="h-4.5 w-4.5" />}
+                      {isRegistering ? "Cadastrar e Entrar" : "Entrar na Central"}
                     </button>
 
-                    <div className="relative flex items-center justify-center my-4">
-                      <div className="absolute inset-0 flex items-center">
-                        <div className="w-full border-t border-zinc-850"></div>
-                      </div>
-                      <span className="relative bg-zinc-900 px-3 text-[10px] text-zinc-550 font-sans tracking-uppercase font-bold">OU ENTRAR COM CONTAS CONECTADAS</span>
+                    <div className="text-center py-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsRegistering(!isRegistering);
+                          if (!isRegistering) {
+                            setUserName('');
+                            setCompanyName('');
+                            setLoginEmail('');
+                            setLoginPassword('');
+                          } else {
+                            setLoginEmail('admin@gestaosaas.com.br');
+                            setLoginPassword('123456');
+                          }
+                        }}
+                        className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold transition-colors cursor-pointer inline-flex items-center gap-1"
+                      >
+                        {isRegistering ? "Já tem conta? Faça Login" : "Não tem conta? Cadastre-se Grátis"}
+                      </button>
                     </div>
-
-                    {/* Google standard login button simulation/real */}
-                    <button
-                      onClick={loginWithGoogleReal}
-                      type="button"
-                      className="w-full flex items-center justify-center gap-3 py-2.5 px-4 bg-zinc-950 border border-zinc-800 hover:bg-zinc-900 text-zinc-200 text-sm font-semibold transition-all rounded-xl cursor-pointer hover:border-zinc-700"
-                    >
-                      <svg className="h-5 w-5" viewBox="0 0 24 24" width="24" height="24" xmlns="http://www.w3.org/2000/svg">
-                        <g transform="matrix(1, 0, 0, 1, 0, 0)">
-                          <path d="M21.35,11.1H12v2.7h5.38C16.88,16.22,14.63,18,12,18a6,6,0,1,1,6-6,5.81,5.81,0,0,1-.5,2.3l2.06,1.48C20.67,14.33,21.35,12.75,21.35,11.1Z" fill="#4285F4"/>
-                          <path d="M12,18a5.94,5.94,0,0,1-3.6-1.2L6.34,18.28C8,19.9,10,20.7,12,20.7a8.7,8.7,0,0,0,8-5.22l-2.06-1.48A6,6,0,0,1,12,18Z" fill="#34A853"/>
-                          <path d="M6,12a5.9,5.9,0,0,1,.8-3l-2.06-1.48A8.7,8.7,0,0,0,3.3,12a8.7,8.7,0,0,0,1.44,4.48L6.8,15A5.9,5.9,0,0,1,6,12Z" fill="#FBBC05"/>
-                          <path d="M12,6A5.91,5.91,0,0,1,15.65,7.2l2.06-1.48A8.7,8.7,0,0,0,12,3.3a8.7,8.7,0,0,0-7.26,3.72L6.8,8.5A5.91,5.91,0,0,1,12,6Z" fill="#EA4335"/>
-                        </g>
-                      </svg>
-                      Entrar com o Google
-                    </button>
 
                     <button
                       onClick={() => {

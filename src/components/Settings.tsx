@@ -23,7 +23,7 @@ import { isSupabaseConfigured } from '../supabase';
 const STATIC_LOGOS = ['⚡', '💎', '📈', '🚀', '💼', '🦄', '🛒', '🎨', '🛠️', '🍇', '🏥', '💡'];
 
 export default function Settings() {
-  const { user, companySettings, updateCompanySettings, addToast } = useAppStore();
+  const { user, companySettings, updateCompanySettings, addToast, resetAllData } = useAppStore();
 
   const [name, setName] = useState(companySettings.name);
   const [businessType, setBusinessType] = useState(companySettings.businessType);
@@ -351,6 +351,29 @@ CREATE TABLE IF NOT EXISTS logs (
             </div>
           </div>
         </div>
+      </div>
+
+      {/* DANGER FACTORY RESET SECTION */}
+      <div className="mt-8 p-6 bg-zinc-900 border border-rose-950/45 rounded-2xl shadow-lg text-zinc-100">
+        <h3 className="text-sm font-semibold text-rose-450 mb-2 flex items-center gap-2">
+          <Trash2 className="h-4.5 w-4.5 text-rose-500" />
+          Área de Risco: Resetar Todo o App
+        </h3>
+        <p className="text-xs text-zinc-400 font-medium mb-6">
+          Remover permanentemente todos os registros de transações, faturas a pagar, histórico de atividades e configurações desta empresa para iniciar do zero. Esta operação não pode ser desfeita.
+        </p>
+        <button
+          type="button"
+          onClick={() => {
+            if (confirm('Tem certeza absoluta de que deseja ZERAR todo o aplicativo? Todas as suas transações, faturas e registros de atividades serão excluídos definitivamente.')) {
+              resetAllData();
+            }
+          }}
+          className="px-5 py-3 bg-rose-600/10 hover:bg-rose-600 border border-rose-500/20 hover:border-rose-600 text-rose-450 hover:text-white rounded-xl text-xs font-semibold cursor-pointer transition-all flex items-center gap-2 active:scale-98"
+        >
+          <Trash2 className="h-4 w-4 text-rose-500 group-hover:text-white" />
+          Zerar Todo o Aplicativo (Reset Geral)
+        </button>
       </div>
     </div>
   );

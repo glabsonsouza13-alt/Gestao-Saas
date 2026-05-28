@@ -55,9 +55,13 @@ interface AppContextType {
   // Onboarding
   onboardingCompleted: boolean;
   completeOnboarding: () => void;
+  resetAllData: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
+
+// Flag to disable writing logs to Supabase if the table is unsupported or missing
+let logsTableUnsupported = false;
 
 // Core Mock/Initial Seed Data for instant visual excellence
 const DEFAULT_CATEGORIES = [
@@ -93,166 +97,11 @@ const getPastDate = (daysAgo: number): string => {
   return d.toISOString().split('T')[0];
 };
 
-const INITIAL_TRANSACTIONS = (): Transaction[] => [
-  {
-    id: 't1',
-    date: getPastDate(2),
-    type: 'entrada',
-    category: 'Venda de Software',
-    clientProject: 'Projeto Fintech Alpha',
-    value: 6500,
-    paymentMethod: 'Pix',
-    notes: 'Primeira parcela do desenvolvimento do dashboard admin.',
-    authorId: '1',
-    authorName: 'Rodrigo Boss',
-    createdAt: new Date(getPastDate(2) + 'T10:00:00Z').toISOString()
-  },
-  {
-    id: 't2',
-    date: getPastDate(5),
-    type: 'saida',
-    category: 'Servidores Cloud (Saída)',
-    clientProject: 'Fatura AWS Amazon',
-    value: 1250,
-    paymentMethod: 'Cartão de Crédito',
-    notes: 'Servidores do ambiente de produção e homologação.',
-    authorId: 'sim_worker_1',
-    authorName: 'Ana Silva',
-    createdAt: new Date(getPastDate(5) + 'T14:30:00Z').toISOString()
-  },
-  {
-    id: 't3',
-    date: getPastDate(10),
-    type: 'entrada',
-    category: 'Consultoria ERP',
-    clientProject: 'Integração Distribuidora Sul',
-    value: 4800,
-    paymentMethod: 'Boleto Bancário',
-    notes: 'Serviço concluído com homologação e treinamento da equipe.',
-    authorId: '1',
-    authorName: 'Rodrigo Boss',
-    createdAt: new Date(getPastDate(10) + 'T09:15:05Z').toISOString()
-  },
-  {
-    id: 't4',
-    date: getPastDate(12),
-    type: 'saida',
-    category: 'Marketing e Ads (Saída)',
-    clientProject: 'Campanha Google Ads',
-    value: 800,
-    paymentMethod: 'Pix',
-    notes: 'Geração de leads no setor industrial.',
-    authorId: 'sim_worker_2',
-    authorName: 'Carlos Santos',
-    createdAt: new Date(getPastDate(12) + 'T17:00:00Z').toISOString()
-  },
-  {
-    id: 't5',
-    date: getPastDate(15),
-    type: 'entrada',
-    category: 'Suporte Técnico',
-    clientProject: 'Contrato Mensal - Vilar S/A',
-    value: 1500,
-    paymentMethod: 'Pix',
-    notes: 'Mensalidade suporte nível 1 e 2.',
-    authorId: 'sim_worker_1',
-    authorName: 'Ana Silva',
-    createdAt: new Date(getPastDate(15) + 'T11:00:00Z').toISOString()
-  },
-  {
-    id: 't6',
-    date: getPastDate(20),
-    type: 'entrada',
-    category: 'Treinamentos',
-    clientProject: 'Bootcamp Interno TechStart',
-    value: 3200,
-    paymentMethod: 'Boleto Bancário',
-    notes: 'Treinamento de React e TypeScript para equipe júnior.',
-    authorId: '1',
-    authorName: 'Rodrigo Boss',
-    createdAt: new Date(getPastDate(20) + 'T08:00:00Z').toISOString()
-  },
-  {
-    id: 't7',
-    date: getPastDate(25),
-    type: 'saida',
-    category: 'Contabilidade (Saída)',
-    clientProject: 'Mensalidade Escritório Real',
-    value: 650,
-    paymentMethod: 'Boleto Bancário',
-    notes: 'Contabilidade e envio das guias de impostos mensais.',
-    authorId: 'sim_worker_2',
-    authorName: 'Carlos Santos',
-    createdAt: new Date(getPastDate(25) + 'T15:00:00Z').toISOString()
-  },
-  {
-    id: 't8',
-    date: getPastDate(28),
-    type: 'saida',
-    category: 'Pró-Labore (Saída)',
-    clientProject: 'Retirada Rodrigo Boss',
-    value: 3000,
-    paymentMethod: 'Transferência',
-    notes: 'Pró-labore mensal padrão sócio fundador.',
-    authorId: '1',
-    authorName: 'Rodrigo Boss',
-    createdAt: new Date(getPastDate(28) + 'T18:00:00Z').toISOString()
-  }
-];
+const INITIAL_TRANSACTIONS = (): Transaction[] => [];
 
-const INITIAL_ACCOUNTS = (): Account[] => [
-  {
-    id: 'a1',
-    name: 'Licenças Adobe Creative Cloud',
-    value: 450,
-    dueDate: getPastDate(-1), // Ontem! (Atrasada)
-    status: 'pendente',
-    recurrence: 'mensal',
-    authorId: 'sim_worker_1',
-    authorName: 'Ana Silva',
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: 'a2',
-    name: 'Contabilidade Mensal Consultoria',
-    value: 850,
-    dueDate: getPastDate(-4), // Em 4 dias no futuro!
-    status: 'pendente',
-    recurrence: 'mensal',
-    authorId: 'sim_worker_2',
-    authorName: 'Carlos Santos',
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: 'a3',
-    name: 'Aluguel Escritório Coworking',
-    value: 2300,
-    dueDate: getPastDate(-12), // Em 12 dias no futuro!
-    status: 'pago',
-    recurrence: 'mensal',
-    authorId: '1',
-    authorName: 'Rodrigo Boss',
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: 'a4',
-    name: 'Domínios e Hospedagem HostGator (Anual)',
-    value: 240,
-    dueDate: getPastDate(-18), // Próximos dias!
-    status: 'pendente',
-    recurrence: 'anual',
-    authorId: '1',
-    authorName: 'Rodrigo Boss',
-    createdAt: new Date().toISOString()
-  }
-];
+const INITIAL_ACCOUNTS = (): Account[] => [];
 
-const INITIAL_LOGS = (): ActivityLog[] => [
-  { id: 'l1', timestamp: new Date(Date.now() - 3600000 * 5).toISOString(), userName: 'Rodrigo Boss', userEmail: 'admin@gestaosaas.com.br', userRole: 'admin', actionType: 'login', details: 'Acessou o painel administrativo' },
-  { id: 'l2', timestamp: new Date(Date.now() - 3600000 * 4).toISOString(), userName: 'Ana Silva', userEmail: 'ana.silva@gestaosaas.com.br', userRole: 'funcionario', actionType: 'add_transaction', details: 'Registrou saída AWS Cloud de R$ 1.250,00' },
-  { id: 'l3', timestamp: new Date(Date.now() - 3600000 * 3).toISOString(), userName: 'Carlos Santos', userEmail: 'carlos.s@gestaosaas.com.br', userRole: 'funcionario', actionType: 'add_transaction', details: 'Registrou despesa Google Ads de R$ 800,00' },
-  { id: 'l4', timestamp: new Date(Date.now() - 3600000 * 2).toISOString(), userName: 'Rodrigo Boss', userEmail: 'admin@gestaosaas.com.br', userRole: 'admin', actionType: 'add_account', details: 'Cadastrou nova conta a pagar: Aluguel Coworking R$ 2.300,00' }
-];
+const INITIAL_LOGS = (): ActivityLog[] => [];
 
 const normalizeLog = (item: any): ActivityLog => {
   return {
@@ -295,6 +144,59 @@ export function AppProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('gestao_onboarding_done', 'true');
     setOnboardingCompleted(true);
     addToast('Bem-vindo à sua nova central de controle financeiro!', 'success');
+  };
+
+  // Complete reset of all settings, transactions, accounts, logs, and onboarding status
+  const resetAllData = async () => {
+    setLoading(true);
+    try {
+      if (isSupabaseConfigured && supabase) {
+        // Delete all data in cloud tables
+        await supabase.from('transactions').delete().neq('id', 'placeholder_match_all');
+        await supabase.from('accounts').delete().neq('id', 'placeholder_match_all');
+        await supabase.from('logs').delete().neq('id', 'placeholder_match_all');
+        
+        // Reset settings
+        const defaultSettingsOnboarding: CompanySettings = {
+          name: 'Nova Empresa SaaS',
+          businessType: 'Tecnologia',
+          monthlyGoal: 10000,
+          logoUrl: '⚡',
+          categories: DEFAULT_CATEGORIES
+        };
+        await supabase.from('settings').upsert({
+          id: 'current',
+          ...defaultSettingsOnboarding
+        });
+      }
+    } catch (e) {
+      console.error("Erro ao resetar banco do Supabase:", e);
+    }
+
+    // Purge everything from local storage
+    localStorage.removeItem('gestao_onboarding_done');
+    localStorage.removeItem('gestao_cached_user');
+    localStorage.removeItem('gestao_transactions');
+    localStorage.removeItem('gestao_accounts');
+    localStorage.removeItem('gestao_logs');
+    localStorage.removeItem('gestao_settings');
+
+    // Wipe local application state
+    setTransactions([]);
+    setAccounts([]);
+    setActivityLogs([]);
+    setCompanySettings({
+      name: 'Nova Empresa SaaS',
+      businessType: 'Tecnologia',
+      monthlyGoal: 10000,
+      logoUrl: '⚡',
+      categories: DEFAULT_CATEGORIES
+    });
+    setUser(null);
+    setOnboardingCompleted(false);
+
+    addToast('O aplicativo foi completamente zerado! Todos os dados foram apagados.', 'success');
+    setLoading(false);
   };
 
   // -------------------------------------------------------------
@@ -528,13 +430,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setActivityLogs(updatedLogs);
     saveToLocal('gestao_logs', updatedLogs);
 
-    if (isSupabaseConfigured && supabase) {
+    if (isSupabaseConfigured && supabase && !logsTableUnsupported) {
       try {
         // Try camelCase insertion first (as defined in our schema)
         const { error } = await supabase.from('logs').insert([newLog]);
         if (error) {
           console.warn("[Supabase Logs] Falha com chaves camelCase, tentando lowercase...", error.message);
           
+          if (error.message && (error.message.includes("Invalid path") || error.message.includes("does not exist"))) {
+            logsTableUnsupported = true;
+            console.warn("[Supabase Logs] Tabela de logs não encontrada/suportada. Desativando sincronização de logs.");
+            return;
+          }
+
           // Fallback 1: lowercase keys (username, useremail, userrole, actiontype)
           const lowercaseLog = {
             id: newLog.id,
@@ -550,6 +458,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
           if (err2) {
             console.warn("[Supabase Logs] Falha com chaves lowercase, tentando snake_case...", err2.message);
             
+            if (err2.message && (err2.message.includes("Invalid path") || err2.message.includes("does not exist"))) {
+              logsTableUnsupported = true;
+              console.warn("[Supabase Logs] Tabela de logs não encontrada/suportada. Desativando sincronização de logs.");
+              return;
+            }
+
             // Fallback 2: snake_case keys (user_name, user_email, user_role, action_type)
             const snakeCaseLog = {
               id: newLog.id,
@@ -562,12 +476,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
             };
             const { error: err3 } = await supabase.from('logs').insert([snakeCaseLog]);
             if (err3) {
-              console.error("[Supabase Logs] Falha definitiva ao salvar log:", err3.message);
+              console.warn("[Supabase Logs] Sincronização automática em nuvem para logs desabilitada.");
+              logsTableUnsupported = true;
             }
           }
         }
       } catch (err) {
         console.warn("Não foi possível persistir log no Supabase:", err);
+        logsTableUnsupported = true;
       }
     }
   };
@@ -865,9 +781,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // METADATA SETTINGS
   // -------------------------------------------------------------
   const updateCompanySettings = async (data: Partial<CompanySettings>) => {
-    if (!user) throw new Error("Usuário não autenticado.");
-
-    if (user.role !== 'admin') {
+    if (user && user.role !== 'admin') {
       addToast("Apenas Administradores (Patrão) possuem nível de acesso para alterar configurações da empresa.", "error");
       return;
     }
@@ -1007,7 +921,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         updateCompanySettings,
         simulateTeamAction,
         onboardingCompleted,
-        completeOnboarding
+        completeOnboarding,
+        resetAllData
       }}
     >
       {children}
